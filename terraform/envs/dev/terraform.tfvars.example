@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+unique_suffix = "ghp01"
+
+# az ad group show -g "aks-admins" --query id -o tsv
+admin_group_object_ids = ["00000000-0000-0000-0000-000000000000"]

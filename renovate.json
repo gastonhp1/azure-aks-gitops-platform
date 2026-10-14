@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommits"
+  ],
+  "timezone": "America/Argentina/Buenos_Aires",
+  "schedule": ["before 9am on monday"],
+  "argocd": {
+    "fileMatch": ["^gitops/.+\\.ya?ml$"]
+  },
+  "terraform": {
+    "fileMatch": ["\\.tf$"]
+  },
+  "packageRules": [
+    {
+      "description": "Platform add-ons: one PR per week, never automerge (read the changelog).",
+      "matchManagers": ["argocd"],
+      "groupName": "platform add-ons",
+      "automerge": false
+    },
+    {
+      "description": "Patch bumps for actions and providers are low risk.",
+      "matchManagers": ["github-actions", "terraform"],
+      "matchUpdateTypes": ["patch", "digest"],
+      "automerge": true
+    }
+  ]
+}

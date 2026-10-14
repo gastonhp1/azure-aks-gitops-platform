@@ -1,0 +1,133 @@
+name: terraform
+
+on:
+  pull_request:
+    paths: ["terraform/**", ".tflint.hcl", ".github/workflows/terraform.yml"]
+  push:
+    branches: [main]
+    paths: ["terraform/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  static:
+    name: fmt / validate / lint / security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to code scanning
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "~1.13"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff terraform
+
+      - name: terraform validate
+        run: |
+          for d in terraform/bootstrap terraform/envs/dev terraform/envs/prod; do
+            echo "::group::$d"
+            terraform -chdir="$d" init -backend=false
+            terraform -chdir="$d" validate
+            echo "::endgroup::"
+          done
+
+      - uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
+      - name: tflint
+        run: |
+          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # avoids rate limits downloading the ruleset
+
+      - name: trivy (IaC misconfiguration)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: terraform
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-iac.sarif
+          # Findings go to the Security tab; accepted risks are documented in
+          # docs/security.md. Flip to "1" to make HIGH/CRITICAL blocking.
+          exit-code: "0"
+
+      - name: upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
+        with:
+          sarif_file: trivy-iac.sarif
+
+  plan:
+    name: plan (${{ matrix.env }})
+    needs: static
+    # Only runs once Azure OIDC is wired up (repository variables set).
+    if: vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, prod]
+    environment: plan-${{ matrix.env }}
+    permissions:
+      contents: read
+      id-token: write # OIDC token for Azure, no client secret
+      pull-requests: write
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_unique_suffix: ${{ vars.UNIQUE_SUFFIX }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "~1.13"
+          terraform_wrapper: false
+
+      - name: init
+        run: terraform -chdir=terraform/envs/${{ matrix.env }} init -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+
+      - name: plan
+        id: plan
+        run: |
+          set -o pipefail
+          terraform -chdir=terraform/envs/${{ matrix.env }} plan -no-color -lock-timeout=5m -detailed-exitcode -out=tfplan \
+            | tee plan.txt || code=$?
+          echo "exitcode=${code:-0}" >> "$GITHUB_OUTPUT"
+          [[ "${code:-0}" == "1" ]] && exit 1 || exit 0
+
+      - name: comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ENV_NAME: ${{ matrix.env }}
+          CHANGES: ${{ steps.plan.outputs.exitcode == '2' }}
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('plan.txt', 'utf8');
+            const body = [
+              `### Terraform plan — \`${process.env.ENV_NAME}\` ${process.env.CHANGES === 'true' ? '(changes)' : '(no changes)'}`,
+              '<details><summary>show plan</summary>',
+              '',
+              '```hcl',
+              plan.length > 60000 ? plan.slice(-60000) : plan,
+              '```',
+              '</details>',
+            ].join('\n');
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });

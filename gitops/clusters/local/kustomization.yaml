@@ -1,0 +1,19 @@
+# Root app for a local kind cluster: same add-ons, no Azure dependencies.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../addons
+  - cluster-config.yaml
+  - demo-api.yaml
+patches:
+  # Keep the laptop footprint small.
+  - target:
+      kind: Application
+      name: kube-prometheus-stack
+    patch: |-
+      - op: replace
+        path: /spec/source/helm/valuesObject/prometheus/prometheusSpec/retention
+        value: 1d
+      - op: replace
+        path: /spec/source/helm/valuesObject/prometheus/prometheusSpec/resources/requests/memory
+        value: 256Mi

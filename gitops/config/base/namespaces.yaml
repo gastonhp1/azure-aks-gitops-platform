@@ -1,0 +1,10 @@
+# App namespaces are created here (not by CreateNamespace=true) so the platform
+# controls their labels: PSA enforcement and permission to attach to the Gateway.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-api
+  labels:
+    platform.gastonhp1.dev/expose: "true"
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted

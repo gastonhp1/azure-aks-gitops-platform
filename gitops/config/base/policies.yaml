@@ -1,0 +1,62 @@
+# Pod Security "restricted" profile for every non-system namespace.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-restricted
+  annotations:
+    policies.kyverno.io/title: Pod Security Standards (restricted)
+    policies.kyverno.io/severity: high
+spec:
+  background: true
+  rules:
+    - name: restricted
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring # node-exporter needs host access
+                - envoy-gateway-system
+      validate:
+        failureAction: Audit # Enforce in prod (cluster overlay)
+        podSecurity:
+          level: restricted
+          version: latest
+---
+# Only run images that secure-cicd-golden-path built and signed (Sigstore
+# keyless: the signing identity is the reusable workflow itself).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+  annotations:
+    policies.kyverno.io/title: Verify Cosign keyless signatures
+    policies.kyverno.io/severity: high
+spec:
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: signed-by-golden-path
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/gastonhp1/*"
+            - "*.azurecr.io/*"
+          failureAction: Audit # Enforce in prod (cluster overlay)
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subjectRegExp: "^https://github\\.com/gastonhp1/secure-cicd-golden-path/\\.github/workflows/reusable-container\\.yml@refs/(heads/main|tags/v.*)$"
+                    rekor:
+                      url: https://rekor.sigstore.dev

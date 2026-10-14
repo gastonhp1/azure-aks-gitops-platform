@@ -1,0 +1,35 @@
+# Root app for the prod cluster. Double-underscore placeholders come from
+# `terraform output` and are filled in by `make configure ENV=prod`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../addons
+  - cluster-config.yaml
+  - demo-api.yaml
+  - cloudsweep.yaml
+patches:
+  - target:
+      kind: Application
+      name: external-secrets
+    patch: |-
+      - op: add
+        path: /spec/source/helm/valuesObject/serviceAccount/annotations
+        value:
+          azure.workload.identity/client-id: "__ESO_CLIENT_ID__"
+  - target:
+      kind: Application
+      name: kyverno
+    patch: |-
+      - op: replace
+        path: /spec/source/helm/valuesObject/admissionController/replicas
+        value: 3
+  - target:
+      kind: Application
+      name: kube-prometheus-stack
+    patch: |-
+      - op: replace
+        path: /spec/source/helm/valuesObject/prometheus/prometheusSpec/retention
+        value: 15d
+      - op: replace
+        path: /spec/source/helm/valuesObject/prometheus/prometheusSpec/retentionSize
+        value: 40GB

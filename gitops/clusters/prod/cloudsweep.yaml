@@ -1,0 +1,40 @@
+# FinOps scanner from github.com/gastonhp1/cloudsweep, run as a daily CronJob
+# with a read-only Workload Identity (Reader on the subscription).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudsweep
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/gastonhp1/cloudsweep.git
+    targetRevision: main
+    path: deploy/k8s
+    kustomize:
+      patches:
+        - target:
+            kind: ServiceAccount
+            name: cloudsweep
+          patch: |-
+            - op: replace
+              path: /metadata/annotations/azure.workload.identity~1client-id
+              value: "__CLOUDSWEEP_CLIENT_ID__"
+        - target:
+            kind: ConfigMap
+            name: cloudsweep
+          patch: |-
+            - op: replace
+              path: /data/AZURE_SUBSCRIPTION_ID
+              value: "__SUBSCRIPTION_ID__"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudsweep
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

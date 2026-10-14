@@ -1,0 +1,17 @@
+# kind cluster: no Azure, so a self-signed issuer and no Key Vault store.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+  - selfsigned-issuer.yaml
+patches:
+  - target:
+      kind: Gateway
+      name: public
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: demo.127.0.0.1.nip.io
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: demo.127.0.0.1.nip.io

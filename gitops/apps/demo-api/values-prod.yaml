@@ -1,0 +1,33 @@
+env: prod
+logLevel: info
+
+# --- managed by the promote job (secure-cicd-golden-path) ---
+image:
+  repository: __ACR_LOGIN_SERVER__/demo-api
+  tag: "0.1.0"
+  digest: ""
+# --- end managed block ---
+
+autoscaling:
+  minReplicas: 3
+  maxReplicas: 10
+
+podDisruptionBudget:
+  minAvailable: 2
+
+httpRoute:
+  hostnames:
+    - "demo.__DOMAIN__"
+
+externalSecret:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector:
+  workload: apps

@@ -1,0 +1,58 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+# Single shared entry point. Apps attach HTTPRoutes from their own namespace;
+# the platform team owns TLS, listeners and which namespaces may attach.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: public
+  namespace: envoy-gateway-system
+  annotations:
+    cert-manager.io/cluster-issuer: default-issuer
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: PLACEHOLDER_HOSTNAME
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: PLACEHOLDER_HOSTNAME
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: public-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              platform.gastonhp1.dev/expose: "true"
+---
+# Redirect plain HTTP to HTTPS (ACME HTTP-01 challenges still get through:
+# cert-manager attaches a more specific route for /.well-known/acme-challenge).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-redirect
+  namespace: envoy-gateway-system
+spec:
+  parentRefs:
+    - name: public
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301

@@ -1,0 +1,33 @@
+# Admission policies: pod security baseline + signature verification of
+# images produced by secure-cicd-golden-path (see gitops/config/base/policies).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://kyverno.github.io/kyverno
+    chart: kyverno
+    targetRevision: 3.7.0
+    helm:
+      releaseName: kyverno
+      valuesObject:
+        admissionController:
+          replicas: 1 # 3 in prod (patched)
+        features:
+          policyExceptions:
+            enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

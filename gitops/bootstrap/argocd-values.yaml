@@ -1,0 +1,48 @@
+# Values used by `make argocd` for the initial Helm install. After that,
+# Argo CD manages itself through gitops/addons/argocd.yaml with these same values.
+global:
+  domain: argocd.local
+
+configs:
+  # Envoy Gateway ships its chart only as an OCI artifact.
+  repositories:
+    envoyproxy-oci:
+      name: envoyproxy
+      type: helm
+      url: docker.io/envoyproxy
+      enableOCI: "true"
+  params:
+    # TLS is terminated at the Gateway; argocd-server serves plain HTTP inside the mesh.
+    server.insecure: true
+  cm:
+    # Argo CD dropped Application health assessment by default (v1.8+).
+    # Re-enabling it is what makes sync waves across child Applications
+    # actually wait (CRDs before the resources that use them).
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil and obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+      return hs
+    # Keep noisy fields out of diffs.
+    resource.exclusions: |
+      - apiGroups: ["cilium.io"]
+        kinds: ["CiliumIdentity"]
+        clusters: ["*"]
+
+controller:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false # flipped on by the cluster overlay once Prometheus exists
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false

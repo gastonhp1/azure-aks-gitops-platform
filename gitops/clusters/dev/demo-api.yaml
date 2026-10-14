@@ -1,0 +1,29 @@
+# Chart from this repo + env values. The image block in values-dev.yaml is
+# rewritten by the promote job in secure-cicd-golden-path (digest pinned).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-api
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/gastonhp1/azure-aks-gitops-platform.git
+      targetRevision: main
+      path: charts/demo-api
+      helm:
+        releaseName: demo-api
+        valueFiles:
+          - $values/gitops/apps/demo-api/values-dev.yaml
+    - repoURL: https://github.com/gastonhp1/azure-aks-gitops-platform.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-api
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

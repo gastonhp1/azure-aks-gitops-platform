@@ -1,0 +1,52 @@
+{{- if .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "demo-api.fullname" . }}
+  labels:
+    {{- include "demo-api.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httpRoute.parentRef.name }}
+      namespace: {{ .Values.httpRoute.parentRef.namespace }}
+      {{- with .Values.httpRoute.parentRef.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  {{- with .Values.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "demo-api.fullname" . }}
+          port: {{ .Values.service.port }}
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+# Default-deny ingress for the app; only the gateway and Prometheus get in.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "demo-api.fullname" . }}
+  labels:
+    {{- include "demo-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "demo-api.selectorLabels" . | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        {{- range .Values.networkPolicy.allowFromNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+      ports:
+        - port: http
+          protocol: TCP
+{{- end }}

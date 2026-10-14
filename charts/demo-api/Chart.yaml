@@ -1,0 +1,9 @@
+apiVersion: v2
+name: demo-api
+description: Reference workload for the platform (built and signed by secure-cicd-golden-path).
+type: application
+version: 0.3.0
+appVersion: "0.1.0"
+maintainers:
+  - name: gastonhp1
+    url: https://github.com/gastonhp1

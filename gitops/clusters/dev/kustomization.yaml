@@ -1,0 +1,18 @@
+# Root app for the dev cluster. Double-underscore placeholders come from
+# `terraform output` and are filled in by `make configure ENV=dev`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../addons
+  - cluster-config.yaml
+  - demo-api.yaml
+  - cloudsweep.yaml
+patches:
+  - target:
+      kind: Application
+      name: external-secrets
+    patch: |-
+      - op: add
+        path: /spec/source/helm/valuesObject/serviceAccount/annotations
+        value:
+          azure.workload.identity/client-id: "__ESO_CLIENT_ID__"

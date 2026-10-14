@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../config/azure
+patches:
+  - target:
+      kind: Gateway
+      name: public
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: "demo.__DOMAIN__"
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: "demo.__DOMAIN__"
+  - target:
+      kind: ClusterSecretStore
+      name: azure-keyvault
+    patch: |-
+      - op: replace
+        path: /spec/provider/azurekv/vaultUrl
+        value: "__VAULT_URL__"
+  - target:
+      kind: ClusterIssuer
+      name: default-issuer
+    patch: |-
+      - op: replace
+        path: /spec/acme/email
+        value: "__ACME_EMAIL__"

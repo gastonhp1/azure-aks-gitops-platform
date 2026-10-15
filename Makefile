@@ -22,6 +22,24 @@ local-forward: ## Expose the Gateway on localhost:8443 (https://demo.127.0.0.1.n
 	kubectl -n envoy-gateway-system port-forward \
 	  $$(kubectl -n envoy-gateway-system get svc -l gateway.envoyproxy.io/owning-gateway-name=public -o name) 8443:443
 
+##@ Local (minikube, no Azure needed)
+MINIKUBE_PROFILE ?= platform-local
+GOLDEN_PATH      ?= ../secure-cicd-golden-path
+DEMO_IMAGE       ?= $(shell awk '/repository:/{r=$$2} /tag:/{gsub(/"/,"",$$2); t=$$2} END{print r":"t}' gitops/apps/demo-api/values-local.yaml)
+
+.PHONY: minikube-up minikube-down minikube-image
+minikube-up: ## Create a minikube cluster, load the demo-api image and bootstrap GitOps
+	minikube start -p $(MINIKUBE_PROFILE) --driver=docker --kubernetes-version=stable --cpus=4 --memory=8g
+	$(MAKE) minikube-image
+	./scripts/bootstrap-argocd.sh local
+
+minikube-down: ## Delete the minikube cluster
+	minikube delete -p $(MINIKUBE_PROFILE)
+
+minikube-image: ## Build demo-api from GOLDEN_PATH and load it into minikube (no registry needed)
+	$(MAKE) -C $(GOLDEN_PATH) image IMAGE=$(DEMO_IMAGE)
+	minikube -p $(MINIKUBE_PROFILE) image load $(DEMO_IMAGE)
+
 ##@ Azure infrastructure
 .PHONY: bootstrap init plan apply destroy configure argocd
 bootstrap: ## One-time: create the remote state storage (local state)

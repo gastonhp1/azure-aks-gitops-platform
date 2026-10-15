@@ -7,6 +7,9 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
+    # Client-side diff can't parse selectableFields in the CRDs and reports
+    # them OutOfSync forever; let the API server compute the diff.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: default
   source:

@@ -50,7 +50,7 @@ spec:
             - "ghcr.io/gastonhp1/*"
             - "*.azurecr.io/*"
           failureAction: Audit # Enforce in prod (cluster overlay)
-          mutateDigest: true
+          mutateDigest: false # Kyverno only allows true with Enforce (prod overlay)
           verifyDigest: true
           required: true
           attestors:

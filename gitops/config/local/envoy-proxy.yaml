@@ -1,0 +1,14 @@
+# No LoadBalancer controller on kind/minikube: an LB Service would stay
+# <pending> and the Gateway never becomes Programmed. ClusterIP is enough,
+# `make local-forward` reaches it through port-forward.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: local
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: ClusterIP

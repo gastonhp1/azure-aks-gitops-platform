@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ../base
   - selfsigned-issuer.yaml
+  - envoy-proxy.yaml
 patches:
   - target:
       kind: Gateway
@@ -15,3 +16,10 @@ patches:
       - op: replace
         path: /spec/listeners/1/hostname
         value: demo.127.0.0.1.nip.io
+      - op: add
+        path: /spec/infrastructure
+        value:
+          parametersRef:
+            group: gateway.envoyproxy.io
+            kind: EnvoyProxy
+            name: local

@@ -96,11 +96,10 @@ kubectl -n argocd get applications -w
 make local-forward   # then open https://demo.127.0.0.1.nip.io:8443 (self-signed cert)
 ```
 
-With minikube instead of kind (also needs [secure-cicd-golden-path](https://github.com/gastonhp1/secure-cicd-golden-path)
-cloned next to this repo; the demo-api image is built locally and loaded into the cluster):
+With minikube instead of kind:
 
 ```bash
-make minikube-up     # minikube cluster + local demo-api image + Argo CD + every add-on
+make minikube-up     # minikube cluster + Argo CD + every add-on
 make local-forward   # same Gateway, same URL
 ```
 

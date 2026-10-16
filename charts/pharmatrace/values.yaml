@@ -1,0 +1,92 @@
+env: local
+
+# -- Images. Built from github.com/gastonhp1/Pharmatrace (chain, backend) and
+# github.com/gastonhp1/PharmaTrace-UI (ui). Prefer `digest` over `tag` when set.
+images:
+  chain:
+    repository: pharmatrace/chain
+    tag: "0.1.0"
+    digest: ""
+  backend:
+    repository: pharmatrace/backend
+    tag: "0.1.0"
+    digest: ""
+  ui:
+    repository: pharmatrace/ui
+    tag: "0.1.0"
+    digest: ""
+pullPolicy: IfNotPresent
+
+# -- In-memory Hardhat chain. It deploys DrugTracker + CargoTracker on start, so a
+# restart gives an empty chain with the contracts at the same addresses.
+chain:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      memory: 1Gi
+
+# -- Contract addresses. The defaults are where a fresh Hardhat chain puts them
+# (first two deploys of account #0).
+contracts:
+  drugTracker: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+  cargoTracker: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+
+# -- One private key per actor; the API signs with the key of each batch's current
+# owner. Set `existingSecret` (keys MANUFACTURER_KEY ... PATIENT_KEY) or `keys`.
+actors:
+  existingSecret: ""
+  keys: {}
+
+backend:
+  # RPC endpoint. Empty: the in-cluster chain.
+  rpcUrl: ""
+  # Skip the x-api-key check on writes. Local only: the UI has no way to keep a key secret.
+  authDisabled: false
+  # Secret with an API_KEY entry, required when authDisabled is false.
+  apiKeySecret: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+
+ui:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+
+# -- UI on / and the API on /api under the same hostname, through the shared Gateway.
+httpRoute:
+  enabled: true
+  hostnames: []
+  parentRef:
+    name: public
+    namespace: envoy-gateway-system
+    sectionName: https
+
+networkPolicy:
+  enabled: true
+  # Namespaces allowed to reach the UI and the API (gateway data plane).
+  allowFromNamespaces:
+    - envoy-gateway-system
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]

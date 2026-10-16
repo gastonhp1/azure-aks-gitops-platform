@@ -1,0 +1,9 @@
+apiVersion: v2
+name: pharmatrace
+description: PharmaTrace (drug traceability on a blockchain) - Hardhat chain, REST API and web UI.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: gastonhp1
+    url: https://github.com/gastonhp1

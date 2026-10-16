@@ -1,0 +1,86 @@
+{{- $fullname := include "pharmatrace.fullname" . }}
+{{- if .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "pharmatrace.labels" (list . "ui") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httpRoute.parentRef.name }}
+      namespace: {{ .Values.httpRoute.parentRef.namespace }}
+      {{- with .Values.httpRoute.parentRef.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+  {{- with .Values.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    # Same origin for both, so the UI calls /api/... with no CORS and no baked-in URL.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: {{ $fullname }}-api
+          port: 80
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullname }}-ui
+          port: 80
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+{{- range $component := list "api" "ui" }}
+---
+# Default-deny ingress; only the gateway gets in.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "pharmatrace.labels" (list $ $component) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pharmatrace.selectorLabels" (list $ $component) | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        {{- range $.Values.networkPolicy.allowFromNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+      ports:
+        - port: http
+          protocol: TCP
+{{- end }}
+{{- if .Values.chain.enabled }}
+---
+# The chain holds the actors' funds and accepts unsigned RPC calls: only the API reaches it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-chain
+  labels:
+    {{- include "pharmatrace.labels" (list . "chain") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pharmatrace.selectorLabels" (list . "chain") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "pharmatrace.selectorLabels" (list . "api") | nindent 14 }}
+      ports:
+        - port: rpc
+          protocol: TCP
+{{- end }}
+{{- end }}

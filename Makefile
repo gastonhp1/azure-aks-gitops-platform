@@ -26,16 +26,19 @@ local-up: ## Create a kind cluster and bootstrap the full GitOps stack
 local-down: ## Delete the kind cluster
 	kind delete cluster --name platform-local
 
-local-forward: ## Expose the Gateway on localhost:8443 (https://demo.127.0.0.1.nip.io:8443)
+local-forward: ## Expose the Gateway on localhost:8443 (https://demo. / https://pharmatrace.127.0.0.1.nip.io:8443)
 	kubectl -n envoy-gateway-system port-forward \
 	  $$(kubectl -n envoy-gateway-system get svc -l gateway.envoyproxy.io/owning-gateway-name=public -o name) 8443:443
 
 ##@ Local (minikube, no Azure needed)
 MINIKUBE_PROFILE ?= platform-local
 GOLDEN_PATH      ?= ../secure-cicd-golden-path
+PHARMATRACE      ?= ../Pharmatrace
+PHARMATRACE_UI   ?= ../PharmaTrace-UI
+PHARMATRACE_TAG  ?= $(shell awk '/^appVersion:/{gsub(/"/,"",$$2); print $$2}' charts/pharmatrace/Chart.yaml)
 DEMO_IMAGE       ?= $(shell awk '/repository:/{r=$$2} /tag:/{gsub(/"/,"",$$2); t=$$2} END{print r":"t}' gitops/apps/demo-api/values-local.yaml)
 
-.PHONY: minikube-up minikube-down minikube-image
+.PHONY: minikube-up minikube-down minikube-image minikube-pharmatrace
 minikube-up: ## Create a minikube cluster and bootstrap the full GitOps stack
 	minikube start -p $(MINIKUBE_PROFILE) --driver=docker --kubernetes-version=stable --cpus=4 --memory=8g
 	./scripts/bootstrap-argocd.sh local
@@ -46,6 +49,13 @@ minikube-down: ## Delete the minikube cluster
 minikube-image: ## Offline: build demo-api from GOLDEN_PATH into minikube (only used while values-local has no digest)
 	$(MAKE) -C $(GOLDEN_PATH) image IMAGE=$(DEMO_IMAGE)
 	minikube -p $(MINIKUBE_PROFILE) image load $(DEMO_IMAGE)
+
+minikube-pharmatrace: ## Build the PharmaTrace images (chain, api, ui) from the sibling repos into minikube
+	docker build -t pharmatrace/chain:$(PHARMATRACE_TAG) $(PHARMATRACE)
+	docker build -t pharmatrace/backend:$(PHARMATRACE_TAG) -f $(PHARMATRACE)/backend/Dockerfile $(PHARMATRACE)
+	docker build -t pharmatrace/ui:$(PHARMATRACE_TAG) $(PHARMATRACE_UI)
+	minikube -p $(MINIKUBE_PROFILE) image load --overwrite pharmatrace/chain:$(PHARMATRACE_TAG) pharmatrace/backend:$(PHARMATRACE_TAG) pharmatrace/ui:$(PHARMATRACE_TAG)
+	-kubectl -n pharmatrace rollout restart deploy
 
 ##@ Azure infrastructure
 .PHONY: bootstrap init plan apply destroy configure argocd
@@ -84,12 +94,15 @@ tf-validate: ## terraform validate every root module (no backend)
 	done
 	tflint --recursive --config "$$(pwd)/.tflint.hcl"
 
-helm-lint: ## Lint and schema-check the demo-api chart for every env
+helm-lint: ## Lint and schema-check the charts for every env they have values for
 	helm lint charts/demo-api
+	helm lint charts/pharmatrace -f gitops/apps/pharmatrace/values-local.yaml
 	@for env in local dev prod; do \
 	  echo ">> demo-api ($$env)"; \
 	  helm template demo-api charts/demo-api -f gitops/apps/demo-api/values-$$env.yaml | $(FILL_PLACEHOLDERS) | $(KUBECONFORM) || exit 1; \
 	done
+	@echo ">> pharmatrace (local)"
+	@helm template pharmatrace charts/pharmatrace -f gitops/apps/pharmatrace/values-local.yaml | $(KUBECONFORM)
 
 manifests: ## Build every kustomization and schema-check it
 	@for k in $$(find gitops -name kustomization.yaml -exec dirname {} \;); do \

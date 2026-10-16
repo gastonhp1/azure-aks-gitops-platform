@@ -1,0 +1,29 @@
+# PharmaTrace: chart from this repo + local values. Images are built and loaded
+# into minikube with `make minikube-pharmatrace` (no registry).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pharmatrace
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/gastonhp1/azure-aks-gitops-platform.git
+      targetRevision: main
+      path: charts/pharmatrace
+      helm:
+        releaseName: pharmatrace
+        valueFiles:
+          - $values/gitops/apps/pharmatrace/values-local.yaml
+    - repoURL: https://github.com/gastonhp1/azure-aks-gitops-platform.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pharmatrace
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

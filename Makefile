@@ -29,9 +29,15 @@ local-down: ## Delete the kind cluster
 FORWARD_ADDRESS ?= 127.0.0.1
 LAN_IP          ?= $(shell ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($$i=="src") print $$(i+1)}')
 
+# kubectl port-forward exits as soon as the server resets one connection (any
+# browser triggers it sooner or later), so it is restarted in a loop. Ctrl+C stops it.
 local-forward: ## Expose the Gateway on localhost:8443 (https://demo. / https://pharmatrace.127.0.0.1.nip.io:8443)
-	kubectl -n envoy-gateway-system port-forward --address $(FORWARD_ADDRESS) \
-	  $$(kubectl -n envoy-gateway-system get svc -l gateway.envoyproxy.io/owning-gateway-name=public -o name) 8443:443
+	@trap 'exit 130' INT TERM; while true; do \
+	  kubectl -n envoy-gateway-system port-forward --address $(FORWARD_ADDRESS) \
+	    $$(kubectl -n envoy-gateway-system get svc -l gateway.envoyproxy.io/owning-gateway-name=public -o name) 8443:443 \
+	    | grep --line-buffered -v '^Handling connection'; \
+	  echo ">> port-forward dropped, restarting"; sleep 1; \
+	done
 
 lan-forward: ## Like local-forward, also on this PC's LAN IP (https://pharmatrace.<LAN_IP>.nip.io:8443)
 	@test -n "$(LAN_IP)" || { echo "could not detect the LAN IP, pass LAN_IP=..."; exit 1; }

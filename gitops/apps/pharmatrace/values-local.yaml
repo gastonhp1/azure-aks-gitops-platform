@@ -1,21 +1,21 @@
 env: local
-
-# Signed images from GHCR, pinned by digest (cosign signature + SBOM verified).
-# Offline alternative: `make minikube-pharmatrace` and point these at pharmatrace/*:0.1.0.
+# --- images: managed by the promote jobs of the Pharmatrace and PharmaTrace-UI CI ---
+# (signed GHCR images pinned by digest; offline: `make minikube-pharmatrace` + pharmatrace/*:0.1.0)
 images:
   chain:
     tag: "sha-4fc433b"
     digest: "sha256:af6da3a58c31ab7af58efa88320ad190be6a604123c14b878a53c4d2489cd76e"
+    repository: ghcr.io/gastonhp1/pharmatrace-chain
   backend:
     tag: "sha-4fc433b"
     digest: "sha256:0b7bc2ff39f371952624c046f7a31ba254f573a57d6f0a41a51066ef944c3935"
+    repository: ghcr.io/gastonhp1/pharmatrace-api
   ui:
     tag: "sha-00332ba"
     digest: "sha256:a9f59add040ed6e51deeacbbd35b6c99c3d698503e0b1ede24937e459cd1e16a"
-
+    repository: ghcr.io/gastonhp1/pharmatrace-ui
 backend:
   authDisabled: true
-
 # Hardhat's default dev accounts #0-#4. They are publicly known (printed by
 # `hardhat node`) and only hold funds on this throwaway local chain.
 actors:
@@ -25,7 +25,6 @@ actors:
     WAREHOUSE_KEY: "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
     PHARMACY_KEY: "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
     PATIENT_KEY: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
-
 httpRoute:
   hostnames:
     - pharmatrace.127.0.0.1.nip.io

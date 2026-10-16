@@ -18,7 +18,7 @@ FILL_PLACEHOLDERS := sed -E \
                   -e 's/__[A-Z_]+_ID__/00000000-0000-0000-0000-000000000000/g'
 
 ##@ Local (kind, no Azure needed)
-.PHONY: local-up local-down local-forward
+.PHONY: local-up local-down local-forward lan-forward
 local-up: ## Create a kind cluster and bootstrap the full GitOps stack
 	kind create cluster --config local/kind-config.yaml
 	./scripts/bootstrap-argocd.sh local
@@ -26,9 +26,17 @@ local-up: ## Create a kind cluster and bootstrap the full GitOps stack
 local-down: ## Delete the kind cluster
 	kind delete cluster --name platform-local
 
+FORWARD_ADDRESS ?= 127.0.0.1
+LAN_IP          ?= $(shell ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($$i=="src") print $$(i+1)}')
+
 local-forward: ## Expose the Gateway on localhost:8443 (https://demo. / https://pharmatrace.127.0.0.1.nip.io:8443)
-	kubectl -n envoy-gateway-system port-forward \
+	kubectl -n envoy-gateway-system port-forward --address $(FORWARD_ADDRESS) \
 	  $$(kubectl -n envoy-gateway-system get svc -l gateway.envoyproxy.io/owning-gateway-name=public -o name) 8443:443
+
+lan-forward: ## Like local-forward, also on this PC's LAN IP (https://pharmatrace.<LAN_IP>.nip.io:8443)
+	@test -n "$(LAN_IP)" || { echo "could not detect the LAN IP, pass LAN_IP=..."; exit 1; }
+	@echo ">> from the LAN: https://pharmatrace.$(LAN_IP).nip.io:8443 (the route needs that hostname in values-local)"
+	$(MAKE) local-forward FORWARD_ADDRESS=127.0.0.1,$(LAN_IP)
 
 ##@ Local (minikube, no Azure needed)
 MINIKUBE_PROFILE ?= platform-local

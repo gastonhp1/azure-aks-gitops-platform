@@ -81,3 +81,52 @@ spec:
                       githubWorkflowRepository: gastonhp1/PharmaTrace-UI # pharmatrace-ui
                     rekor:
                       url: https://rekor.sigstore.dev
+---
+# verify-image-signatures only checks images from the registries it lists; an
+# image from anywhere else (docker.io/..., quay.io/...) is never verified. This
+# closes that: outside the platform namespaces, every container must come from
+# a registry the signature policy covers. Together: allowed registry + signed
+# by golden-path from an allowlisted repo.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Restrict image registries
+    policies.kyverno.io/severity: high
+spec:
+  background: true
+  rules:
+    - name: signed-registries-only
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      # Platform add-ons pull their upstream images (quay.io, registry.k8s.io,
+      # docker.io, ...). Any other namespace, including new ones, is restricted.
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-node-lease
+                - kube-public
+                - kyverno
+                - argocd
+                - cert-manager
+                - external-secrets
+                - envoy-gateway-system
+                - monitoring
+      validate:
+        failureAction: Audit # Enforce in prod (cluster overlay)
+        message: >-
+          Images must come from ghcr.io/gastonhp1/ or an Azure Container Registry
+          (*.azurecr.io), where verify-image-signatures checks their signature.
+        pattern:
+          spec:
+            =(ephemeralContainers):
+              - image: "ghcr.io/gastonhp1/* | *.azurecr.io/*"
+            =(initContainers):
+              - image: "ghcr.io/gastonhp1/* | *.azurecr.io/*"
+            containers:
+              - image: "ghcr.io/gastonhp1/* | *.azurecr.io/*"

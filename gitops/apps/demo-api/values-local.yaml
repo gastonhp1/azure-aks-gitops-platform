@@ -4,8 +4,8 @@ logLevel: debug
 # --- managed by the promote job (secure-cicd-golden-path) ---
 image:
   repository: ghcr.io/gastonhp1/demo-api
-  tag: "sha-84bed04"
-  digest: "sha256:cd06e3df49a15ad1c4837accdcfca6afbcebb6a195af5a960f9ce9085abdfbeb"
+  tag: "sha-6eb82a4"
+  digest: "sha256:1bd72fe3e1099c662f69507d507c3a7e532442d7f445f7f49996c8d802670ef1"
 # --- end managed block ---
 
 autoscaling:

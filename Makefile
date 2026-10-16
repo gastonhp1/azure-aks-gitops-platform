@@ -8,6 +8,14 @@ TFSTATE_SA     ?= $(error set TFSTATE_SA to the state storage account name, e.g.
 KUBECONFORM    := kubeconform -strict -summary -ignore-missing-schemas \
                   -schema-location default \
                   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+# Unconfigured envs still carry placeholders that fail schema patterns (e.g.
+# Gateway hostnames); swap in well-formed dummies for validation only.
+FILL_PLACEHOLDERS := sed -E \
+                  -e 's/__DOMAIN__/example.com/g; s/PLACEHOLDER_HOSTNAME/demo.example.com/g' \
+                  -e 's/(__ACME_EMAIL__|PLACEHOLDER_ACME_EMAIL)/ops@example.com/g' \
+                  -e 's|(__VAULT_URL__\|PLACEHOLDER_VAULT_URL)|https://kv-example.vault.azure.net/|g' \
+                  -e 's/__ACR_LOGIN_SERVER__/acrexample.azurecr.io/g' \
+                  -e 's/__[A-Z_]+_ID__/00000000-0000-0000-0000-000000000000/g'
 
 ##@ Local (kind, no Azure needed)
 .PHONY: local-up local-down local-forward
@@ -80,12 +88,12 @@ helm-lint: ## Lint and schema-check the demo-api chart for every env
 	helm lint charts/demo-api
 	@for env in local dev prod; do \
 	  echo ">> demo-api ($$env)"; \
-	  helm template demo-api charts/demo-api -f gitops/apps/demo-api/values-$$env.yaml | $(KUBECONFORM) || exit 1; \
+	  helm template demo-api charts/demo-api -f gitops/apps/demo-api/values-$$env.yaml | $(FILL_PLACEHOLDERS) | $(KUBECONFORM) || exit 1; \
 	done
 
 manifests: ## Build every kustomization and schema-check it
 	@for k in $$(find gitops -name kustomization.yaml -exec dirname {} \;); do \
-	  echo ">> $$k"; kustomize build $$k | $(KUBECONFORM) || exit 1; \
+	  echo ">> $$k"; kustomize build $$k | $(FILL_PLACEHOLDERS) | $(KUBECONFORM) || exit 1; \
 	done
 
 ##@ Help

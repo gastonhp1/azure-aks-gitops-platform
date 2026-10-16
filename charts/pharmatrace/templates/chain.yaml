@@ -1,0 +1,76 @@
+{{- if .Values.chain.enabled }}
+{{- $name := printf "%s-chain" (include "pharmatrace.fullname" .) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "pharmatrace.labels" (list . "chain") | nindent 4 }}
+spec:
+  replicas: 1 # one in-memory chain; a second replica would be a different chain
+  revisionHistoryLimit: 5
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "pharmatrace.selectorLabels" (list . "chain") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pharmatrace.selectorLabels" (list . "chain") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: chain
+          image: {{ include "pharmatrace.image" .Values.images.chain }}
+          imagePullPolicy: {{ .Values.pullPolicy }}
+          ports:
+            - name: rpc
+              containerPort: 8545
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ include "pharmatrace.actorsSecret" . }}
+          # The entrypoint touches /tmp/ready once the contracts are deployed.
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/ready"]
+            periodSeconds: 5
+          startupProbe:
+            exec:
+              command: ["test", "-f", "/tmp/ready"]
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            tcpSocket:
+              port: rpc
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.chain.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "pharmatrace.labels" (list . "chain") | nindent 4 }}
+spec:
+  selector:
+    {{- include "pharmatrace.selectorLabels" (list . "chain") | nindent 4 }}
+  ports:
+    - name: rpc
+      port: 8545
+      targetPort: rpc
+      protocol: TCP
+{{- end }}

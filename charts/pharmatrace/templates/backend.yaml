@@ -1,0 +1,108 @@
+{{- $name := printf "%s-api" (include "pharmatrace.fullname" .) }}
+{{- if and (not .Values.backend.authDisabled) (not .Values.backend.apiKeySecret) }}
+{{- fail "backend.apiKeySecret is required unless backend.authDisabled is true" }}
+{{- end }}
+{{- if not .Values.actors.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "pharmatrace.actorsSecret" . }}
+  labels:
+    {{- include "pharmatrace.labels" (list . "api") | nindent 4 }}
+type: Opaque
+stringData:
+  {{- range $k := list "MANUFACTURER_KEY" "DISTRIBUTOR_KEY" "WAREHOUSE_KEY" "PHARMACY_KEY" "PATIENT_KEY" }}
+  {{ $k }}: {{ required (printf "actors.keys.%s is required (or set actors.existingSecret)" $k) (index $.Values.actors.keys $k) | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "pharmatrace.labels" (list . "api") | nindent 4 }}
+spec:
+  # The API signs with fixed wallets; one replica keeps their nonces in order.
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "pharmatrace.selectorLabels" (list . "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pharmatrace.selectorLabels" (list . "api") | nindent 8 }}
+      annotations:
+        checksum/actors: {{ toJson .Values.actors | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "pharmatrace.image" .Values.images.backend }}
+          imagePullPolicy: {{ .Values.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3001"
+            - name: RPC_URL
+              value: {{ .Values.backend.rpcUrl | default (printf "http://%s-chain:8545" (include "pharmatrace.fullname" .)) | quote }}
+            - name: CONTRACT_ADDRESS
+              value: {{ .Values.contracts.drugTracker | quote }}
+            - name: CARGO_CONTRACT_ADDRESS
+              value: {{ .Values.contracts.cargoTracker | quote }}
+            {{- if .Values.backend.authDisabled }}
+            - name: AUTH_DISABLED
+              value: "true"
+            {{- else }}
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.apiKeySecret }}
+                  key: API_KEY
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "pharmatrace.actorsSecret" . }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "pharmatrace.labels" (list . "api") | nindent 4 }}
+spec:
+  selector:
+    {{- include "pharmatrace.selectorLabels" (list . "api") | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

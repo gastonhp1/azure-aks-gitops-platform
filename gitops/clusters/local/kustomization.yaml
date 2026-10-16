@@ -5,6 +5,7 @@ resources:
   - ../../addons
   - cluster-config.yaml
   - demo-api.yaml
+  - pharmatrace.yaml
 patches:
   # Keep the laptop footprint small.
   - target:

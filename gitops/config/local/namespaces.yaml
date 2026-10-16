@@ -1,0 +1,10 @@
+# Local-only apps. Same labels as the base app namespaces: PSA restricted and
+# permission to attach routes to the Gateway.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pharmatrace
+  labels:
+    platform.gastonhp1.dev/expose: "true"
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted

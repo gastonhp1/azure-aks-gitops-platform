@@ -28,3 +28,4 @@ actors:
 httpRoute:
   hostnames:
     - pharmatrace.127.0.0.1.nip.io
+    - pharmatrace.192.168.1.10.nip.io # from the LAN via `make lan-forward` (this PC's IP)

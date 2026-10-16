@@ -13,10 +13,12 @@ patches:
     patch: |-
       - op: replace
         path: /spec/listeners/0/hostname
-        value: "*.127.0.0.1.nip.io" # every local app: demo., pharmatrace., ...
+        # Any nip.io name: <app>.127.0.0.1.nip.io on this machine, <app>.<LAN IP>.nip.io
+        # from the LAN (`make lan-forward`). Gateway API wildcards match any prefix.
+        value: "*.nip.io"
       - op: replace
         path: /spec/listeners/1/hostname
-        value: "*.127.0.0.1.nip.io"
+        value: "*.nip.io"
       - op: add
         path: /spec/infrastructure
         value:

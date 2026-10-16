@@ -29,7 +29,7 @@ environment: {{ $root.Values.env }}
 {{- if .digest -}}
 {{- printf "%s@%s" .repository .digest -}}
 {{- else -}}
-{{- printf "%s:%s" .repository .tag -}}
+{{- printf "%s:%s" .repository (required (printf "set a tag or digest for %s" .repository) .tag) -}}
 {{- end -}}
 {{- end -}}
 

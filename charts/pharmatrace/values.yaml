@@ -1,19 +1,20 @@
 env: local
 
-# -- Images. Built from github.com/gastonhp1/Pharmatrace (chain, backend) and
-# github.com/gastonhp1/PharmaTrace-UI (ui). Prefer `digest` over `tag` when set.
+# -- Images, published and signed to GHCR by the CI of github.com/gastonhp1/Pharmatrace
+# (chain, backend) and github.com/gastonhp1/PharmaTrace-UI (ui) through the golden-path
+# reusable workflow. Prefer `digest` over `tag` when set.
 images:
   chain:
-    repository: pharmatrace/chain
-    tag: "0.1.0"
+    repository: ghcr.io/gastonhp1/pharmatrace-chain
+    tag: ""
     digest: ""
   backend:
-    repository: pharmatrace/backend
-    tag: "0.1.0"
+    repository: ghcr.io/gastonhp1/pharmatrace-api
+    tag: ""
     digest: ""
   ui:
-    repository: pharmatrace/ui
-    tag: "0.1.0"
+    repository: ghcr.io/gastonhp1/pharmatrace-ui
+    tag: ""
     digest: ""
 pullPolicy: IfNotPresent
 

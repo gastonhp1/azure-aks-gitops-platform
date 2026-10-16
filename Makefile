@@ -50,7 +50,7 @@ minikube-image: ## Offline: build demo-api from GOLDEN_PATH into minikube (only 
 	$(MAKE) -C $(GOLDEN_PATH) image IMAGE=$(DEMO_IMAGE)
 	minikube -p $(MINIKUBE_PROFILE) image load $(DEMO_IMAGE)
 
-minikube-pharmatrace: ## Build the PharmaTrace images (chain, api, ui) from the sibling repos into minikube
+minikube-pharmatrace: ## Offline: build the PharmaTrace images (chain, api, ui) from the sibling repos into minikube
 	docker build -t pharmatrace/chain:$(PHARMATRACE_TAG) $(PHARMATRACE)
 	docker build -t pharmatrace/backend:$(PHARMATRACE_TAG) -f $(PHARMATRACE)/backend/Dockerfile $(PHARMATRACE)
 	docker build -t pharmatrace/ui:$(PHARMATRACE_TAG) $(PHARMATRACE_UI)

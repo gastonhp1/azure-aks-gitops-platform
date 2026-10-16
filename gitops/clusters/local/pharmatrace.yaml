@@ -1,5 +1,5 @@
-# PharmaTrace: chart from this repo + local values. Images are built and loaded
-# into minikube with `make minikube-pharmatrace` (no registry).
+# PharmaTrace: chart from this repo + local values. Signed images from GHCR,
+# pinned by digest in values-local.yaml.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

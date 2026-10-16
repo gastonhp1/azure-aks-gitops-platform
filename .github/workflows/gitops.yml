@@ -2,10 +2,10 @@ name: gitops
 
 on:
   pull_request:
-    paths: ["gitops/**", "charts/**", ".github/workflows/gitops.yml"]
+    paths: ["gitops/**", "charts/**", "Makefile", ".github/workflows/gitops.yml"] # Makefile: the checks run its targets
   push:
     branches: [main]
-    paths: ["gitops/**", "charts/**"]
+    paths: ["gitops/**", "charts/**", "Makefile"]
 
 permissions:
   contents: read

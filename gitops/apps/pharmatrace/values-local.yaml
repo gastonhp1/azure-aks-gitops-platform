@@ -1,6 +1,17 @@
 env: local
 
-# Images built locally and loaded into minikube: `make minikube-pharmatrace`.
+# Signed images from GHCR, pinned by digest (cosign signature + SBOM verified).
+# Offline alternative: `make minikube-pharmatrace` and point these at pharmatrace/*:0.1.0.
+images:
+  chain:
+    tag: "sha-4fc433b"
+    digest: "sha256:af6da3a58c31ab7af58efa88320ad190be6a604123c14b878a53c4d2489cd76e"
+  backend:
+    tag: "sha-4fc433b"
+    digest: "sha256:0b7bc2ff39f371952624c046f7a31ba254f573a57d6f0a41a51066ef944c3935"
+  ui:
+    tag: "sha-00332ba"
+    digest: "sha256:a9f59add040ed6e51deeacbbd35b6c99c3d698503e0b1ede24937e459cd1e16a"
 
 backend:
   authDisabled: true

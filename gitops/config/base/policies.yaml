@@ -53,10 +53,31 @@ spec:
           mutateDigest: false # Kyverno only allows true with Enforce (prod overlay)
           verifyDigest: true
           required: true
+          # The certificate subject is the reusable workflow, which is public: any
+          # GitHub repo can call it and get a signature with that subject. So each
+          # entry also pins the repo the workflow ran in (Fulcio's GitHub Workflow
+          # Repository extension, exact match). Onboarding an app = adding its repo.
           attestors:
-            - entries:
+            - count: 1 # any one entry
+              entries:
                 - keyless:
                     issuer: https://token.actions.githubusercontent.com
                     subjectRegExp: "^https://github\\.com/gastonhp1/secure-cicd-golden-path/\\.github/workflows/reusable-container\\.yml@refs/(heads/main|tags/v.*)$"
+                    additionalExtensions:
+                      githubWorkflowRepository: gastonhp1/secure-cicd-golden-path # demo-api
+                    rekor:
+                      url: https://rekor.sigstore.dev
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subjectRegExp: "^https://github\\.com/gastonhp1/secure-cicd-golden-path/\\.github/workflows/reusable-container\\.yml@refs/(heads/main|tags/v.*)$"
+                    additionalExtensions:
+                      githubWorkflowRepository: gastonhp1/Pharmatrace # pharmatrace-chain, pharmatrace-api
+                    rekor:
+                      url: https://rekor.sigstore.dev
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subjectRegExp: "^https://github\\.com/gastonhp1/secure-cicd-golden-path/\\.github/workflows/reusable-container\\.yml@refs/(heads/main|tags/v.*)$"
+                    additionalExtensions:
+                      githubWorkflowRepository: gastonhp1/PharmaTrace-UI # pharmatrace-ui
                     rekor:
                       url: https://rekor.sigstore.dev

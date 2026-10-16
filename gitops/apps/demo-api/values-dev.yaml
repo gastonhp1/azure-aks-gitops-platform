@@ -1,23 +1,19 @@
 env: dev
 logLevel: debug
-
 # --- managed by the promote job (secure-cicd-golden-path) ---
 image:
-  repository: __ACR_LOGIN_SERVER__/demo-api
-  tag: "0.1.0"
-  digest: ""
+  repository: ghcr.io/gastonhp1/demo-api
+  tag: "sha-f9f5ba2"
+  digest: "sha256:c7efd829bae62389416fe271aa49faf1e9996f771aa496ecda3501dae786556b"
 # --- end managed block ---
 
 autoscaling:
   minReplicas: 1
   maxReplicas: 3
-
 podDisruptionBudget:
   enabled: false
-
 httpRoute:
   hostnames:
     - "demo.__DOMAIN__"
-
 externalSecret:
   enabled: true

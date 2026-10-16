@@ -1,24 +1,20 @@
 env: local
 logLevel: debug
-
 # Local clusters pull the public GHCR image (no ACR needed).
 # --- managed by the promote job (secure-cicd-golden-path) ---
 image:
   repository: ghcr.io/gastonhp1/demo-api
   tag: "sha-f9f5ba2"
-  digest: "sha256:f63d8ecb8c0f55e285e146fd90aa87224ee9b6275364a06eb164d84814a1f993"
+  digest: "sha256:c7efd829bae62389416fe271aa49faf1e9996f771aa496ecda3501dae786556b"
 # --- end managed block ---
 
 autoscaling:
   enabled: false
 replicaCount: 1
-
 podDisruptionBudget:
   enabled: false
-
 topologySpreadConstraints:
   enabled: false
-
 httpRoute:
   hostnames:
     - demo.127.0.0.1.nip.io

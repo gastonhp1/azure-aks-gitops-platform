@@ -3,8 +3,8 @@ env: local
 # (signed GHCR images pinned by digest; offline: `make minikube-pharmatrace` + pharmatrace/*:0.1.0)
 images:
   chain:
-    tag: "sha-471694e"
-    digest: "sha256:4de52b38f2414aa83a1a7563871b507d84f3b64345cc9cdb9c64cafc512a9121"
+    tag: "sha-495b341"
+    digest: "sha256:d0ec55d960c85d926c84c881fb2fa80820569ccbfe830000d394c89730d3bb12"
     repository: ghcr.io/gastonhp1/pharmatrace-chain
   backend:
     tag: "sha-471694e"

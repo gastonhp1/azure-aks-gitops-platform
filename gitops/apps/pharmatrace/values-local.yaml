@@ -7,8 +7,8 @@ images:
     digest: "sha256:4de52b38f2414aa83a1a7563871b507d84f3b64345cc9cdb9c64cafc512a9121"
     repository: ghcr.io/gastonhp1/pharmatrace-chain
   backend:
-    tag: "sha-471694e"
-    digest: "sha256:9f43b6c9a03ffdfb39602451ec109586298e21d7eef4b8c2f7d3fb88ccc148a4"
+    tag: "sha-495b341"
+    digest: "sha256:61ea4b206466a3a3a04543e284166caae0603a3ff0fb48eb079b9c01d62e171d"
     repository: ghcr.io/gastonhp1/pharmatrace-api
   ui:
     tag: "sha-d6a6242"

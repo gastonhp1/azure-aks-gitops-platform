@@ -53,7 +53,7 @@ PHARMATRACE_FABRIC_NS ?= pharmatrace-fabric
 PHARMATRACE_TAG  ?= $(shell awk '/^appVersion:/{gsub(/"/,"",$$2); print $$2}' charts/pharmatrace/Chart.yaml)
 DEMO_IMAGE       ?= $(shell awk '/repository:/{r=$$2} /tag:/{gsub(/"/,"",$$2); t=$$2} END{print r":"t}' gitops/apps/demo-api/values-local.yaml)
 
-.PHONY: minikube-up minikube-down minikube-image minikube-pharmatrace pharmatrace-fabric pharmatrace-fabric-down
+.PHONY: minikube-up minikube-down minikube-image minikube-pharmatrace pharmatrace-fabric pharmatrace-fabric-down pharmatrace-auth pharmatrace-user
 minikube-up: ## Create a minikube cluster and bootstrap the full GitOps stack
 	minikube start -p $(MINIKUBE_PROFILE) --driver=docker --kubernetes-version=stable --cpus=4 --memory=8g
 	./scripts/bootstrap-argocd.sh local
@@ -84,6 +84,13 @@ pharmatrace-fabric: ## Local: Hyperledger Fabric network for PharmaTrace (from P
 pharmatrace-fabric-down: ## Local: remove the Fabric network (namespace, ledgers, identities) and the API's Secret
 	cd $(PHARMATRACE)/fabric/network && K8S_NS=$(PHARMATRACE_FABRIC_NS) ./k8s.sh down
 	-kubectl -n pharmatrace delete secret pharmatrace-fabric-identities
+
+# Login and unlock material (session secret, unlock signing key, users). init keeps existing keys.
+pharmatrace-auth: ## Local: the API's auth Secret (SESSION_SECRET, unlock key, users file); keeps existing keys
+	PHARMATRACE=$(PHARMATRACE) ./scripts/pharmatrace-auth.sh init
+
+pharmatrace-user: ## Local: manage API users, e.g. ARGS="add ana FarmaMSP" | "remove ana" | "list"
+	PHARMATRACE=$(PHARMATRACE) ./scripts/pharmatrace-auth.sh user $(ARGS)
 
 ##@ Azure infrastructure
 .PHONY: bootstrap init plan apply destroy configure argocd

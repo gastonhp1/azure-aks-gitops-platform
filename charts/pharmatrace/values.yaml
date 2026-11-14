@@ -38,6 +38,10 @@ backend:
   authDisabled: false
   # Secret with an API_KEY entry, required when authDisabled is false.
   apiKeySecret: ""
+  # Secret with session-secret, users.json and unlock-key.pem (scripts/pharmatrace-auth.sh), for
+  # the mobile app's login (/api/auth) and PharmaBox unlock (/api/box). Empty: those answer 503.
+  # Sessions live in the API's memory, so keep a single replica.
+  authSecret: ""
   resources:
     requests:
       cpu: 50m

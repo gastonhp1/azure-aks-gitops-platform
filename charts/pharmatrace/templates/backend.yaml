@@ -63,6 +63,19 @@ spec:
                   name: {{ .Values.backend.apiKeySecret }}
                   key: API_KEY
             {{- end }}
+            {{- with .Values.backend.authSecret }}
+            # Mobile app login and PharmaBox unlock (scripts/pharmatrace-auth.sh). Without it
+            # /api/auth and /api/box answer 503.
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: session-secret
+            - name: USERS_FILE
+              value: /etc/pharmatrace/auth/users.json
+            - name: UNLOCK_KEY_FILE
+              value: /etc/pharmatrace/auth/unlock-key.pem
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
@@ -84,10 +97,27 @@ spec:
             - name: fabric-identities
               mountPath: {{ $orgsDir }}
               readOnly: true
+            {{- if .Values.backend.authSecret }}
+            # A directory mount (not subPath), so user changes reach the pod without a restart.
+            - name: auth
+              mountPath: /etc/pharmatrace/auth
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- with .Values.backend.authSecret }}
+        - name: auth
+          secret:
+            secretName: {{ . }}
+            defaultMode: 0440
+            items:
+              - key: users.json
+                path: users.json
+              - key: unlock-key.pem
+                path: unlock-key.pem
+        {{- end }}
         # The API's Fabric identities, laid out as fabric/network/organizations. Created outside
         # git from the network's material (scripts/pharmatrace-fabric-identities.sh); keys are
         # <org>.<User>.cert.pem, <org>.<User>.key.pem and <org>.tlsca.crt.

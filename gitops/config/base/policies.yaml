@@ -71,7 +71,7 @@ spec:
                     issuer: https://token.actions.githubusercontent.com
                     subjectRegExp: "^https://github\\.com/gastonhp1/secure-cicd-golden-path/\\.github/workflows/reusable-container\\.yml@refs/(heads/main|tags/v.*)$"
                     additionalExtensions:
-                      githubWorkflowRepository: gastonhp1/Pharmatrace # pharmatrace-chain, pharmatrace-api
+                      githubWorkflowRepository: gastonhp1/Pharmatrace # pharmatrace-api
                     rekor:
                       url: https://rekor.sigstore.dev
                 - keyless:

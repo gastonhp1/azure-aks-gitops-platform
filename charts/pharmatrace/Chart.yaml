@@ -1,8 +1,8 @@
 apiVersion: v2
 name: pharmatrace
-description: PharmaTrace (drug traceability on a blockchain) - Hardhat chain, REST API and web UI.
+description: PharmaTrace (drug traceability on Hyperledger Fabric) - REST API and web UI; the Fabric network is deployed separately.
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "0.1.0"
 maintainers:
   - name: gastonhp1

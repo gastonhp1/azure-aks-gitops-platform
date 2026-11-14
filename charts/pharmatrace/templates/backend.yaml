@@ -2,20 +2,8 @@
 {{- if and (not .Values.backend.authDisabled) (not .Values.backend.apiKeySecret) }}
 {{- fail "backend.apiKeySecret is required unless backend.authDisabled is true" }}
 {{- end }}
-{{- if not .Values.actors.existingSecret }}
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ include "pharmatrace.actorsSecret" . }}
-  labels:
-    {{- include "pharmatrace.labels" (list . "api") | nindent 4 }}
-type: Opaque
-stringData:
-  {{- range $k := list "MANUFACTURER_KEY" "DISTRIBUTOR_KEY" "WAREHOUSE_KEY" "PHARMACY_KEY" "PATIENT_KEY" }}
-  {{ $k }}: {{ required (printf "actors.keys.%s is required (or set actors.existingSecret)" $k) (index $.Values.actors.keys $k) | quote }}
-  {{- end }}
----
-{{- end }}
+{{- $fabric := .Values.fabric }}
+{{- $orgsDir := "/fabric/organizations" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,7 +11,6 @@ metadata:
   labels:
     {{- include "pharmatrace.labels" (list . "api") | nindent 4 }}
 spec:
-  # The API signs with fixed wallets; one replica keeps their nonces in order.
   replicas: 1
   revisionHistoryLimit: 5
   selector:
@@ -33,8 +20,6 @@ spec:
     metadata:
       labels:
         {{- include "pharmatrace.selectorLabels" (list . "api") | nindent 8 }}
-      annotations:
-        checksum/actors: {{ toJson .Values.actors | sha256sum }}
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -50,12 +35,24 @@ spec:
           env:
             - name: PORT
               value: "3001"
-            - name: RPC_URL
-              value: {{ .Values.backend.rpcUrl | default (printf "http://%s-chain:8545" (include "pharmatrace.fullname" .)) | quote }}
-            - name: CONTRACT_ADDRESS
-              value: {{ .Values.contracts.drugTracker | quote }}
-            - name: CARGO_CONTRACT_ADDRESS
-              value: {{ .Values.contracts.cargoTracker | quote }}
+            - name: FABRIC_ORGS_DIR
+              value: {{ $orgsDir }}
+            - name: FABRIC_CHANNEL
+              value: {{ $fabric.channel | quote }}
+            - name: FABRIC_CHAINCODE
+              value: {{ $fabric.chaincode | quote }}
+            # Each org's identities talk to that org's peer (Fabric Gateway). The TLS
+            # name checked is still peer0.<org>.pharmatrace.ar, which the certificates carry.
+            {{- range $org, $users := $fabric.identities }}
+            - name: FABRIC_PEER_ENDPOINT_{{ upper $org }}
+              value: {{ printf "peer0-%s.%s.svc.cluster.local:7051" $org $fabric.namespace | quote }}
+            {{- end }}
+            {{- with .Values.backend.iotGatewayIdentity }}
+            - name: IOT_GATEWAY_IDENTITY
+              value: {{ . | quote }}
+            {{- end }}
+            - name: UNLOCK_AUDIT_FILE
+              value: /tmp/unlock-audit.jsonl
             {{- if .Values.backend.authDisabled }}
             - name: AUTH_DISABLED
               value: "true"
@@ -66,17 +63,14 @@ spec:
                   name: {{ .Values.backend.apiKeySecret }}
                   key: API_KEY
             {{- end }}
-          envFrom:
-            - secretRef:
-                name: {{ include "pharmatrace.actorsSecret" . }}
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -87,10 +81,32 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: fabric-identities
+              mountPath: {{ $orgsDir }}
+              readOnly: true
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        # The API's Fabric identities, laid out as fabric/network/organizations. Created outside
+        # git from the network's material (scripts/pharmatrace-fabric-identities.sh); keys are
+        # <org>.<User>.cert.pem, <org>.<User>.key.pem and <org>.tlsca.crt.
+        - name: fabric-identities
+          secret:
+            secretName: {{ $fabric.identitiesSecret }}
+            defaultMode: 0440
+            items:
+              {{- range $org, $users := $fabric.identities }}
+              {{- $d := printf "%s.pharmatrace.ar" $org }}
+              - key: {{ $org }}.tlsca.crt
+                path: peerOrganizations/{{ $d }}/peers/peer0.{{ $d }}/tls/ca.crt
+              {{- range $user := $users }}
+              - key: {{ $org }}.{{ $user }}.cert.pem
+                path: peerOrganizations/{{ $d }}/users/{{ $user }}@{{ $d }}/msp/signcerts/cert.pem
+              - key: {{ $org }}.{{ $user }}.key.pem
+                path: peerOrganizations/{{ $d }}/users/{{ $user }}@{{ $d }}/msp/keystore/key.pem
+              {{- end }}
+              {{- end }}
 ---
 apiVersion: v1
 kind: Service

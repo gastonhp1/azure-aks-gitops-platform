@@ -49,10 +49,11 @@ MINIKUBE_PROFILE ?= platform-local
 GOLDEN_PATH      ?= ../secure-cicd-golden-path
 PHARMATRACE      ?= ../Pharmatrace
 PHARMATRACE_UI   ?= ../PharmaTrace-UI
+PHARMATRACE_FABRIC_NS ?= pharmatrace-fabric
 PHARMATRACE_TAG  ?= $(shell awk '/^appVersion:/{gsub(/"/,"",$$2); print $$2}' charts/pharmatrace/Chart.yaml)
 DEMO_IMAGE       ?= $(shell awk '/repository:/{r=$$2} /tag:/{gsub(/"/,"",$$2); t=$$2} END{print r":"t}' gitops/apps/demo-api/values-local.yaml)
 
-.PHONY: minikube-up minikube-down minikube-image minikube-pharmatrace
+.PHONY: minikube-up minikube-down minikube-image minikube-pharmatrace pharmatrace-fabric pharmatrace-fabric-down
 minikube-up: ## Create a minikube cluster and bootstrap the full GitOps stack
 	minikube start -p $(MINIKUBE_PROFILE) --driver=docker --kubernetes-version=stable --cpus=4 --memory=8g
 	./scripts/bootstrap-argocd.sh local
@@ -64,12 +65,25 @@ minikube-image: ## Offline: build demo-api from GOLDEN_PATH into minikube (only 
 	$(MAKE) -C $(GOLDEN_PATH) image IMAGE=$(DEMO_IMAGE)
 	minikube -p $(MINIKUBE_PROFILE) image load $(DEMO_IMAGE)
 
-minikube-pharmatrace: ## Offline: build the PharmaTrace images (chain, api, ui) from the sibling repos into minikube
-	docker build -t pharmatrace/chain:$(PHARMATRACE_TAG) $(PHARMATRACE)
+minikube-pharmatrace: ## Offline: build the PharmaTrace images (api, ui) from the sibling repos into minikube
 	docker build -t pharmatrace/backend:$(PHARMATRACE_TAG) -f $(PHARMATRACE)/backend/Dockerfile $(PHARMATRACE)
 	docker build -t pharmatrace/ui:$(PHARMATRACE_TAG) $(PHARMATRACE_UI)
-	minikube -p $(MINIKUBE_PROFILE) image load --overwrite pharmatrace/chain:$(PHARMATRACE_TAG) pharmatrace/backend:$(PHARMATRACE_TAG) pharmatrace/ui:$(PHARMATRACE_TAG)
+	minikube -p $(MINIKUBE_PROFILE) image load --overwrite pharmatrace/backend:$(PHARMATRACE_TAG) pharmatrace/ui:$(PHARMATRACE_TAG)
 	-kubectl -n pharmatrace rollout restart deploy
+
+# The network's bootstrap (CAs -> identities -> nodes -> channel -> chaincode) is imperative, so it
+# runs from the Pharmatrace repo's scripts instead of Argo. Its state lives in PVCs and Secrets of
+# $(PHARMATRACE_FABRIC_NS), so it survives minikube restarts; run it once per cluster.
+pharmatrace-fabric: ## Local: Hyperledger Fabric network for PharmaTrace (from PHARMATRACE) + the API's identities Secret
+	cd $(PHARMATRACE)/fabric/network && ./network.sh prereq
+	cd $(PHARMATRACE)/fabric/network && export K8S_NS=$(PHARMATRACE_FABRIC_NS) MINIKUBE_PROFILE=$(MINIKUBE_PROFILE) && \
+	  ./k8s.sh up && ./k8s.sh channel && ./k8s.sh deploy && ./k8s.sh smoke
+	./scripts/pharmatrace-fabric-identities.sh $(PHARMATRACE)/fabric/network/organizations
+	-kubectl -n pharmatrace rollout restart deploy/pharmatrace-api
+
+pharmatrace-fabric-down: ## Local: remove the Fabric network (namespace, ledgers, identities) and the API's Secret
+	cd $(PHARMATRACE)/fabric/network && K8S_NS=$(PHARMATRACE_FABRIC_NS) ./k8s.sh down
+	-kubectl -n pharmatrace delete secret pharmatrace-fabric-identities
 
 ##@ Azure infrastructure
 .PHONY: bootstrap init plan apply destroy configure argocd

@@ -12,6 +12,7 @@ images:
     repository: ghcr.io/gastonhp1/pharmatrace-ui
 backend:
   authDisabled: true
+  authSecret: pharmatrace-auth # `make pharmatrace-auth`, users with `make pharmatrace-user`
 # The Fabric network and the API's identities Secret: `make pharmatrace-fabric`
 httpRoute:
   hostnames:
